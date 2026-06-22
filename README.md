@@ -28,7 +28,7 @@ BACnet/IP device simulator with a modern dark glassmorphism UI. Simulates a full
 ```bash
 # Clone
 git clone https://github.com/ittiponkub/bacnet-simulator.git
-cd bacnet-sim
+cd bacnet-simulator
 
 # Setup
 python -m venv venv
@@ -140,7 +140,7 @@ netsh advfirewall firewall add rule name="BACnet" dir=in action=allow protocol=U
 ## Project Structure
 
 ```
-bacnet-sim/
+bacnet-simulator/
 ├── backend/
 │   ├── main.py            # Entry point (pywebview + asyncio)
 │   ├── desktop.py         # pywebview window management
