@@ -27,7 +27,7 @@ BACnet/IP device simulator with a modern dark glassmorphism UI. Simulates a full
 
 ```bash
 # Clone
-git clone https://github.com/toeittipon/bacnet-simulator.git
+git clone https://github.com/ittiponkub/bacnet-simulator.git
 cd bacnet-simulator
 
 # Setup
