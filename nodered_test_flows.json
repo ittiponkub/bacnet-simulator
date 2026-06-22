@@ -1,0 +1,916 @@
+[
+    {
+        "id": "comment_r",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "══════ READ ALL (50 objects) ══════",
+        "x": 280,
+        "y": 2540,
+        "wires": []
+    },
+    {
+        "id": "inj_r1",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Read All (once)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 210,
+        "y": 2590,
+        "wires": [
+            [
+                "fn_rb"
+            ]
+        ]
+    },
+    {
+        "id": "inj_r5",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "d": true,
+        "name": "Poll every 5s",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 200,
+        "y": 2630,
+        "wires": [
+            [
+                "fn_rb"
+            ]
+        ]
+    },
+    {
+        "id": "fn_rb",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "build RPM",
+        "func": "const ADDR = \"192.168.203.180\";\nconst ALL = [\n  [0,0],[0,1],[0,2],[0,3],[0,4],\n  [1,0],[1,1],[1,2],[1,3],[1,4],\n  [2,0],[2,1],[2,2],[2,3],[2,4],[2,5],\n  [3,0],[3,1],[3,2],[3,3],[3,4],\n  [4,0],[4,1],[4,2],[4,3],[4,4],\n  [5,0],[5,1],[5,2],[5,3],[5,4],\n  [13,0],[13,1],[13,2],[13,3],[13,4],\n  [14,0],[14,1],[14,2],[14,3],[14,4],\n  [19,0],[19,1],[19,2],[19,3],[19,4],\n  [40,0],[40,1],[40,2],[40,3],[40,4],[40,5],\n];\nmsg.payload = {\n  deviceIPAddress: ADDR,\n  requestArray: ALL.map(([t,i]) => ({\n    objectId: { type: t, instance: i },\n    properties: [{ id: 85 }]\n  }))\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 2590,
+        "wires": [
+            [
+                "a3ddf384f61a8c52"
+            ]
+        ]
+    },
+    {
+        "id": "fn_rp",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "parse & split by type",
+        "func": "const MAP = {\n  \"0:0\":\"AHU1.SupplyAirTemp\",\"0:1\":\"AHU1.ReturnAirTemp\",\"0:2\":\"Chiller1.ChWSupplyTemp\",\"0:3\":\"Zone1.Humidity\",\"0:4\":\"Building.TotalPower\",\n  \"1:0\":\"AHU1.SupplyFanSpeed\",\"1:1\":\"AHU1.CoolingValve\",\"1:2\":\"AHU1.HeatingValve\",\"1:3\":\"VAV1.DamperPosition\",\"1:4\":\"Pump1.SpeedCommand\",\n  \"2:0\":\"AHU1.SupplyAirTempSetpoint\",\"2:1\":\"Zone1.TempSetpoint\",\"2:2\":\"Zone2.TempSetpoint\",\"2:3\":\"Chiller1.ChWSetpoint\",\"2:4\":\"Building.DemandLimit\",\n  \"3:0\":\"AHU1.SupplyFanStatus\",\"3:1\":\"AHU1.FilterStatus\",\"3:2\":\"Chiller1.RunStatus\",\"3:3\":\"Pump1.RunStatus\",\"3:4\":\"FireAlarm.Status\",\n  \"4:0\":\"AHU1.SupplyFanCommand\",\"4:1\":\"Chiller1.EnableCommand\",\"4:2\":\"Pump1.StartCommand\",\"4:3\":\"Lighting.Zone1Command\",\"4:4\":\"Lighting.Zone2Command\",\n  \"5:0\":\"System.OccupiedMode\",\"5:1\":\"AHU1.Enable\",\"5:2\":\"NightSetback.Active\",\"5:3\":\"Holiday.Mode\",\"5:4\":\"Alarm.GlobalEnable\",\n  \"13:0\":\"AHU1.UnitStatus\",\"13:1\":\"Chiller1.Mode\",\"13:2\":\"System.Season\",\"13:3\":\"Zone1.FanSpeed\",\"13:4\":\"Generator.Status\",\n  \"14:0\":\"AHU1.FanSpeedCommand\",\"14:1\":\"Damper.PositionCmd\",\"14:2\":\"Boiler.StageCommand\",\"14:3\":\"Lighting.SceneCmd\",\"14:4\":\"Pump.SpeedCommand\",\n  \"19:0\":\"System.OperatingMode\",\"19:1\":\"AHU1.FanMode\",\"19:2\":\"Zone1.HVACMode\",\"19:3\":\"Lighting.Scene\",\"19:4\":\"Chiller.Sequence\",\n  \"40:0\":\"Building.Name\",\"40:1\":\"AHU1.Location\",\"40:2\":\"System.FirmwareTag\",\"40:3\":\"Maintenance.Note\",\"40:4\":\"Operator.Message\"\n};\nconst TN={0:\"AI\",1:\"AO\",2:\"AV\",3:\"BI\",4:\"BO\",5:\"BV\",13:\"MSI\",14:\"MO\",19:\"MSV\",40:\"CSV\"};\nconst buf={AI:{},AO:{},AV:{},BI:{},BO:{},BV:{},MSI:{},MO:{},MSV:{},CSV:{}};\ntry{\n  const items = msg.payload.values || msg.payload || [];\n  for(const it of items){\n    const t=it.objectId.type, k=t+\":\"+it.objectId.instance, nm=MAP[k]||k;\n    let v=null;\n    try{ v=it.values[0].value[0].value; if((t===0||t===1||t===2)&&typeof v===\"number\") v=parseFloat(v.toFixed(1)); }catch(e){}\n    const tn=TN[t]||\"OTHER\";\n    if(buf[tn]) buf[tn][nm]=v;\n  }\n}catch(e){ node.warn(\"parse: \"+e.message); }\nreturn [{payload:buf.AI,topic:\"AI\"},{payload:buf.AO,topic:\"AO\"},{payload:buf.AV,topic:\"AV\"},{payload:buf.BI,topic:\"BI\"},{payload:buf.BO,topic:\"BO\"},{payload:buf.BV,topic:\"BV\"},{payload:buf.MSI,topic:\"MSI\"},{payload:buf.MO,topic:\"MO\"},{payload:buf.MSV,topic:\"MSV\"},{payload:buf.CSV,topic:\"CSV\"}];\n",
+        "outputs": 10,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 780,
+        "y": 2590,
+        "wires": [
+            [
+                "da"
+            ],
+            [
+                "db"
+            ],
+            [
+                "dc"
+            ],
+            [
+                "dd"
+            ],
+            [
+                "de"
+            ],
+            [
+                "df"
+            ],
+            [
+                "dg"
+            ],
+            [
+                "dh"
+            ],
+            [
+                "di"
+            ],
+            [
+                "badab9a69133222b"
+            ]
+        ]
+    },
+    {
+        "id": "da",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "AI",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 990,
+        "y": 2530,
+        "wires": []
+    },
+    {
+        "id": "db",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "AO",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 990,
+        "y": 2560,
+        "wires": []
+    },
+    {
+        "id": "dc",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "AV",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 990,
+        "y": 2590,
+        "wires": []
+    },
+    {
+        "id": "dd",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "BI",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 990,
+        "y": 2620,
+        "wires": []
+    },
+    {
+        "id": "de",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "BO",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 990,
+        "y": 2650,
+        "wires": []
+    },
+    {
+        "id": "df",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "BV",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 990,
+        "y": 2680,
+        "wires": []
+    },
+    {
+        "id": "dg",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "MSI",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 990,
+        "y": 2710,
+        "wires": []
+    },
+    {
+        "id": "dh",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "MO",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 990,
+        "y": 2740,
+        "wires": []
+    },
+    {
+        "id": "di",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "MSV",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 990,
+        "y": 2770,
+        "wires": []
+    },
+    {
+        "id": "a3ddf384f61a8c52",
+        "type": "BACnet-Read",
+        "z": "bacnet_tab_1",
+        "name": "BACnet Simulator",
+        "objectType": "",
+        "instance": "944b414ac5c8fa80",
+        "propertyId": "",
+        "device": "b1f14028c1cbc9da",
+        "server": "b97e425b2de35f4b",
+        "multipleRead": true,
+        "x": 570,
+        "y": 2600,
+        "wires": [
+            [
+                "fn_rp"
+            ]
+        ]
+    },
+    {
+        "id": "19ce49691b94bee9",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "══════ WRITE + VERIFY + RETRY ══════",
+        "x": 260,
+        "y": 2840,
+        "wires": []
+    },
+    {
+        "id": "562d00465692d9b6",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write + Verify + Retry",
+        "props": [
+            {
+                "p": "payload",
+                "v": "START",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "START",
+        "payloadType": "str",
+        "x": 230,
+        "y": 2980,
+        "wires": [
+            [
+                "20747c95edeafb48"
+            ]
+        ]
+    },
+    {
+        "id": "20747c95edeafb48",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "write controller",
+        "func": "//===== CONFIG =====\nconst ADDR = \"192.168.203.180\";\nconst MAX_R = 3;\nconst DLY = 1000;\nconst STUCK_TIMEOUT = 30000;\n\n// tag: 0=NULL 2=UINT 4=REAL 7=STRING 9=ENUM\nconst WRITES = [\n  {nm:\"AHU1.SupplyAirTempSetpoint\",t:2,i:0,tag:4,v:17.0},\n  {nm:\"Zone1.TempSetpoint\",t:2,i:1,tag:4,v:23.5},\n  {nm:\"Zone2.TempSetpoint\",t:2,i:2,tag:4,v:24.0},\n  {nm:\"Chiller1.ChWSetpoint\",t:2,i:3,tag:4,v:7.0},\n  {nm:\"Building.DemandLimit\",t:2,i:4,tag:4,v:180.0},\n  {nm:\"System.OccupiedMode\",t:5,i:0,tag:9,v:1,pri:8},\n  {nm:\"AHU1.Enable\",t:5,i:1,tag:9,v:1,pri:8},\n  {nm:\"System.OperatingMode\",t:19,i:0,tag:2,v:1,pri:8},\n  {nm:\"AHU1.FanMode\",t:19,i:1,tag:2,v:3,pri:8},\n  {nm:\"AHU1.SupplyFanSpeed\",t:1,i:0,tag:4,v:75.0,pri:8},\n  {nm:\"AHU1.CoolingValve\",t:1,i:1,tag:4,v:60.0,pri:8},\n  {nm:\"AHU1.SupplyFanCommand\",t:4,i:0,tag:9,v:1,pri:8},\n  {nm:\"Maintenance.Note\",t:40,i:3,tag:7,v:\"PM scheduled\"},\n  {nm:\"Operator.Message\",t:40,i:4,tag:7,v:\"Test from NR\"},\n];\n//==================\n\nlet s = context.get(\"s\") || null;\n\n// ── START ──\nif (msg.payload === \"START\") {\n  if (s && s.ph) {\n    const age = Date.now() - (s.ts || 0);\n    if (age < STUCK_TIMEOUT) {\n      node.warn(\"กำลังทำงาน — กด inject อีกครั้งเพื่อ force reset\");\n      s._forceNext = true; context.set(\"s\",s);\n      node.status({fill:\"yellow\",shape:\"ring\",text:\"กดอีกครั้ง = force reset\"});\n      return null;\n    }\n    node.warn(\"Auto-reset (stuck > 30s)\");\n  }\n  if (s && s._forceNext) {\n    node.warn(\"Force reset — เริ่มรอบใหม่\");\n  }\n  s = {rid:Date.now(),ph:\"w\",addr:ADDR,maxR:MAX_R,dly:DLY,\n       att:1,pend:JSON.parse(JSON.stringify(WRITES)),done:[],idx:0,ts:Date.now()};\n  context.set(\"s\",s);\n  node.status({fill:\"blue\",shape:\"dot\",text:`writing ${s.pend.length}...`});\n  return emitW(s);\n}\n\nif(!s||(msg._rid&&msg._rid!==s.rid)) return null;\ns.ts=Date.now(); context.set(\"s\",s);\n\n// ── WRITE RESPONSE ──\nif(s.ph===\"w\") {\n  if(s.idx < s.pend.length) {\n    const m = mkW(s);\n    s.idx++; context.set(\"s\",s);\n    node.status({fill:\"blue\",shape:\"ring\",text:`[${s.att}] write ${s.idx}/${s.pend.length}`});\n    setTimeout(()=>node.send([m,null,null]),s.dly);\n    return null;\n  }\n  s.ph=\"v\"; s.idx=0; context.set(\"s\",s);\n  node.status({fill:\"yellow\",shape:\"ring\",text:`verifying...`});\n  setTimeout(()=>node.send([null,mkV(s),null]),1500);\n  return null;\n}\n\n// ── VERIFY RESPONSE ──\nif(s.ph===\"v\") {\n  const items = (msg.payload&&msg.payload.values) || msg.payload || [];\n  const rm={};\n  try {\n    for(const it of (Array.isArray(items)?items:[])) {\n      const k=it.objectId.type+\":\"+it.objectId.instance;\n      try{rm[k]=it.values[0].value[0].value;}catch(e){rm[k]=\"ERR\";}\n    }\n  } catch(e) { node.warn(\"verify parse: \"+e.message); }\n\n  const ok=[],fail=[];\n  for(const w of s.pend){\n    const k=w.t+\":\"+w.i, a=rm[k], e=w.v;\n    let m=false;\n    if(a!==undefined&&a!==\"ERR\"){\n      if(typeof e===\"number\"&&typeof a===\"number\") m=Math.abs(a-e)<0.15;\n      else if(typeof e===\"string\") m=String(a)===e;\n      else m=a==e;\n    }\n    (m?ok:fail).push({...w,actual:a,match:m});\n  }\n  s.done=s.done.concat(ok);\n\n  if(fail.length===0||s.att>=s.maxR){\n    s.done=s.done.concat(fail);\n    const r=summ(s); context.set(\"s\",null);\n    return [null,null,r];\n  }\n  node.warn(`Retry ${s.att+1}: ${fail.map(f=>f.nm).join(\", \")}`);\n  node.status({fill:\"yellow\",shape:\"dot\",text:`retry ${s.att+1}: ${fail.length}`});\n  s.pend=fail; s.idx=0; s.att++; s.ph=\"w\"; context.set(\"s\",s);\n  const m=mkW(s); s.idx++; context.set(\"s\",s);\n  setTimeout(()=>node.send([m,null,null]),2000);\n  return null;\n}\nreturn null;\n\n// ── HELPERS ──\nfunction emitW(st){\n  const m=mkW(st); if(!m)return null;\n  st.idx++; context.set(\"s\",st);\n  return [m,null,null];\n}\nfunction mkW(st){\n  if(st.idx>=st.pend.length) return null;\n  const w=st.pend[st.idx];\n  const m = {\n    payload: {\n      deviceIPAddress: st.addr,\n      objectId: { type: w.t, instance: w.i },\n      propertyId: 85,\n      values: [{ type: w.tag, value: w.v }],\n    },\n    topic: w.nm, _rid: st.rid\n  };\n  if (w.pri) m.payload.options = { priority: w.pri };\n  return m;\n}\nfunction mkV(st){\n  return {\n    payload: {\n      deviceIPAddress: st.addr,\n      requestArray: st.pend.map(w=>({objectId:{type:w.t,instance:w.i},properties:[{id:85}]}))\n    },\n    _rid: st.rid\n  };\n}\nfunction summ(st){\n  const p=st.done.filter(d=>d.match),f=st.done.filter(d=>!d.match),n=st.done.length,ok=f.length===0;\n  node.status(ok?{fill:\"green\",shape:\"dot\",text:`PASSED ${p.length}/${n} (${st.att} att)`}\n                :{fill:\"red\",shape:\"ring\",text:`FAIL ${f.length}/${n} (${st.att} att)`});\n  return {payload:{status:ok?\"ALL PASSED\":\"HAS FAILURES\",total:n,passed:p.length,failed:f.length,\n    attempts:st.att,details:st.done.map(d=>({name:d.nm,status:d.match?\"PASS\":\"FAIL\",expected:d.v,actual:d.actual}))}};\n}\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 2980,
+        "wires": [
+            [
+                "b3a413429ad39cfc"
+            ],
+            [
+                "db3a4e62f4db515f"
+            ],
+            [
+                "249af76bd107c430"
+            ]
+        ]
+    },
+    {
+        "id": "b3a413429ad39cfc",
+        "type": "BACnet-Write",
+        "z": "bacnet_tab_1",
+        "name": "WriteProperty",
+        "objectType": "",
+        "instance": "944b414ac5c8fa80",
+        "valueTag": "",
+        "valueValue": "",
+        "propertyId": "",
+        "priority": "",
+        "device": "b1f14028c1cbc9da",
+        "server": "b97e425b2de35f4b",
+        "multipleWrite": false,
+        "x": 460,
+        "y": 2900,
+        "wires": [
+            [
+                "20747c95edeafb48"
+            ]
+        ]
+    },
+    {
+        "id": "db3a4e62f4db515f",
+        "type": "BACnet-Read",
+        "z": "bacnet_tab_1",
+        "name": "Read (verify)",
+        "objectType": "",
+        "instance": "944b414ac5c8fa80",
+        "propertyId": "",
+        "device": "b1f14028c1cbc9da",
+        "server": "b97e425b2de35f4b",
+        "multipleRead": true,
+        "x": 450,
+        "y": 3060,
+        "wires": [
+            [
+                "20747c95edeafb48"
+            ]
+        ]
+    },
+    {
+        "id": "249af76bd107c430",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "Summary",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.status",
+        "statusType": "auto",
+        "x": 740,
+        "y": 3000,
+        "wires": []
+    },
+    {
+        "id": "c9b87a8559e893ad",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "ดับเบิลคลิก BACnet-Read/Write → ตั้ง connector (port 47809, timeout 10000) | แก้ ADDR ใน controller",
+        "x": 440,
+        "y": 3120,
+        "wires": []
+    },
+    {
+        "id": "comment_av",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "── AV: Analog Value (non-commandable) เขียนตรง ไม่ต้องมี priority ──",
+        "x": 410,
+        "y": 3180,
+        "wires": []
+    },
+    {
+        "id": "inj_av",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write AV:1 = 25.5°C",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 260,
+        "y": 3220,
+        "wires": [
+            [
+                "fn_av"
+            ]
+        ]
+    },
+    {
+        "id": "fn_av",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "AV write (REAL, no priority)",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 2, instance: 1 },  // analog-value:1\n  propertyId: 85,                       // presentValue\n  values: [{ type: 4, value: 25.5 }]   // tag 4 = REAL\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 500,
+        "y": 3220,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "comment_ao",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "── AO: Analog Output (commandable) ต้องมี priority ──",
+        "x": 380,
+        "y": 3270,
+        "wires": []
+    },
+    {
+        "id": "inj_ao",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write AO:0 = 75%",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 250,
+        "y": 3310,
+        "wires": [
+            [
+                "fn_ao"
+            ]
+        ]
+    },
+    {
+        "id": "fn_ao",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "AO write (REAL + priority)",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 1, instance: 0 },  // analog-output:0\n  propertyId: 85,\n  values: [{ type: 4, value: 75.0 }],  // tag 4 = REAL\n  options: { priority: 8 }              // ต้องมี!\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 500,
+        "y": 3310,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "comment_bv",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "── BV: Binary Value (commandable) 0=inactive 1=active ──",
+        "x": 390,
+        "y": 3360,
+        "wires": []
+    },
+    {
+        "id": "inj_bv_on",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write BV:0 = Active",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 260,
+        "y": 3400,
+        "wires": [
+            [
+                "fn_bv_on"
+            ]
+        ]
+    },
+    {
+        "id": "fn_bv_on",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "BV write Active (ENUM + priority)",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 5, instance: 0 },  // binary-value:0\n  propertyId: 85,\n  values: [{ type: 9, value: 1 }],     // tag 9 = ENUM, 1=active\n  options: { priority: 8 }\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 530,
+        "y": 3400,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "inj_bv_off",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write BV:0 = Inactive",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 260,
+        "y": 3440,
+        "wires": [
+            [
+                "fn_bv_off"
+            ]
+        ]
+    },
+    {
+        "id": "fn_bv_off",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "BV write Inactive",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 5, instance: 0 },\n  propertyId: 85,\n  values: [{ type: 9, value: 0 }],     // 0=inactive\n  options: { priority: 8 }\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 500,
+        "y": 3440,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "comment_bo",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "── BO: Binary Output (commandable) ──",
+        "x": 330,
+        "y": 3490,
+        "wires": []
+    },
+    {
+        "id": "inj_bo",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write BO:0 = Active (start fan)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 290,
+        "y": 3530,
+        "wires": [
+            [
+                "fn_bo"
+            ]
+        ]
+    },
+    {
+        "id": "fn_bo",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "BO write (ENUM + priority)",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 4, instance: 0 },  // binary-output:0\n  propertyId: 85,\n  values: [{ type: 9, value: 1 }],     // tag 9 = ENUM\n  options: { priority: 8 }\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 530,
+        "y": 3530,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "comment_msv",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "── MSV: Multi-State Value (commandable) ค่าเริ่ม 1 ──",
+        "x": 390,
+        "y": 3580,
+        "wires": []
+    },
+    {
+        "id": "inj_msv",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write MSV:1 = 3 (Medium)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 280,
+        "y": 3620,
+        "wires": [
+            [
+                "fn_msv"
+            ]
+        ]
+    },
+    {
+        "id": "fn_msv",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "MSV write (UINT + priority)",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 19, instance: 1 }, // multi-state-value:1\n  propertyId: 85,\n  values: [{ type: 2, value: 3 }],     // tag 2 = UNSIGNED, 3=Medium\n  options: { priority: 8 }\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 530,
+        "y": 3620,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "comment_mo",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "── MO: Multi-State Output (commandable) ──",
+        "x": 350,
+        "y": 3670,
+        "wires": []
+    },
+    {
+        "id": "inj_mo",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write MO:0 = 2 (Low)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 260,
+        "y": 3710,
+        "wires": [
+            [
+                "fn_mo"
+            ]
+        ]
+    },
+    {
+        "id": "fn_mo",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "MO write (UINT + priority)",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 14, instance: 0 }, // multi-state-output:0\n  propertyId: 85,\n  values: [{ type: 2, value: 2 }],     // tag 2 = UNSIGNED, 2=Low\n  options: { priority: 8 }\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 530,
+        "y": 3710,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "comment_csv",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "── CSV: CharacterString Value (เขียนตรง) ──",
+        "x": 360,
+        "y": 3760,
+        "wires": []
+    },
+    {
+        "id": "inj_csv",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Write CSV:4 = \"Hello BACnet\"",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 290,
+        "y": 3800,
+        "wires": [
+            [
+                "fn_csv"
+            ]
+        ]
+    },
+    {
+        "id": "fn_csv",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "CSV write (STRING)",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 40, instance: 4 }, // characterstring-value:4\n  propertyId: 85,\n  values: [{ type: 7, value: \"Hello BACnet\" }]  // tag 7 = STRING\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 500,
+        "y": 3800,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "comment_relinquish",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "── Relinquish (คืนค่า commandable กลับเป็น default) ──",
+        "x": 400,
+        "y": 3850,
+        "wires": []
+    },
+    {
+        "id": "inj_relin",
+        "type": "inject",
+        "z": "bacnet_tab_1",
+        "name": "Relinquish BV:0 @P8",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "payload": "",
+        "payloadType": "date",
+        "x": 260,
+        "y": 3890,
+        "wires": [
+            [
+                "fn_relin"
+            ]
+        ]
+    },
+    {
+        "id": "fn_relin",
+        "type": "function",
+        "z": "bacnet_tab_1",
+        "name": "Relinquish (NULL + priority)",
+        "func": "msg.payload = {\n  deviceIPAddress: \"192.168.203.180\",\n  objectId: { type: 5, instance: 0 },  // binary-value:0\n  propertyId: 85,\n  values: [{ type: 0, value: null }],   // tag 0 = NULL = relinquish\n  options: { priority: 8 }               // คืนช่อง P8\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "x": 520,
+        "y": 3890,
+        "wires": [
+            [
+                "bw_single"
+            ]
+        ]
+    },
+    {
+        "id": "bw_single",
+        "type": "BACnet-Write",
+        "z": "bacnet_tab_1",
+        "name": "WriteProperty",
+        "objectType": "",
+        "instance": "944b414ac5c8fa80",
+        "valueTag": "",
+        "valueValue": "",
+        "propertyId": "",
+        "priority": "",
+        "device": "b1f14028c1cbc9da",
+        "server": "b97e425b2de35f4b",
+        "multipleWrite": false,
+        "x": 780,
+        "y": 3550,
+        "wires": [
+            [
+                "dbg_wr"
+            ]
+        ]
+    },
+    {
+        "id": "dbg_wr",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "Write Result",
+        "active": true,
+        "tosidebar": true,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "topic",
+        "statusType": "auto",
+        "x": 950,
+        "y": 3550,
+        "wires": []
+    },
+    {
+        "id": "comment_tags",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "Application Tags: 0=NULL(relinquish) | 2=UNSIGNED(multi-state) | 4=REAL(analog) | 7=STRING | 9=ENUM(binary 0/1)",
+        "x": 490,
+        "y": 3950,
+        "wires": []
+    },
+    {
+        "id": "comment_setup",
+        "type": "comment",
+        "z": "bacnet_tab_1",
+        "name": "ตั้ง BACnet-Write node: Instance=Building.Simulator | Device=BACnet Simulator | Client=BACnet Client(port 47809)",
+        "x": 490,
+        "y": 3990,
+        "wires": []
+    },
+    {
+        "id": "badab9a69133222b",
+        "type": "debug",
+        "z": "bacnet_tab_1",
+        "name": "CSV",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 990,
+        "y": 2800,
+        "wires": []
+    },
+    {
+        "id": "944b414ac5c8fa80",
+        "type": "BACnet-Instance",
+        "name": "Building.Simulator",
+        "instanceAddress": "123456"
+    },
+    {
+        "id": "b1f14028c1cbc9da",
+        "type": "BACnet-Device",
+        "name": "BACnet Simulator",
+        "deviceAddress": "192.168.203.180"
+    },
+    {
+        "id": "b97e425b2de35f4b",
+        "type": "BACnet-Client",
+        "name": "\tBACnet Client",
+        "adpuTimeout": "10000",
+        "port": "47809",
+        "interface": "192.168.203.180",
+        "broadcastAddress": "192.168.203.255"
+    }
+]
